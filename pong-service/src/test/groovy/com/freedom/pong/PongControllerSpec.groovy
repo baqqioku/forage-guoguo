@@ -13,6 +13,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+//使用WebClient
 class PongControllerSpec extends Specification {
 
     @Subject
@@ -26,7 +27,7 @@ class PongControllerSpec extends Specification {
         webClient = WebClient.create("http://localhost:8081")
     }
 
-    def "should return 'World' for a single request"() {
+    def "test should return 'World' for a single request"() {
         when:
         def response = webClient.get()
                 .uri("/pong")
@@ -38,7 +39,7 @@ class PongControllerSpec extends Specification {
         response == "World"
     }
 
-    def "should throttle requests exceeding the rate limit"() {
+    def "test should throttle requests exceeding the rate limit"() {
         given:
         def totalRequests = 10
         def successfulRequests = new AtomicInteger(0)
@@ -97,7 +98,7 @@ class PongControllerSpec extends Specification {
         println "Test completed. Successful requests: ${successfulRequests.get()}, Throttled requests: ${throttledRequests.get()}"
     }
 
-    def "should maintain rate limit over a longer period"() {
+    def "test should maintain rate limit over a longer period"() {
         given:
         def testDurationSeconds = 5
         def expectedRequests = testDurationSeconds // 因为QPS是1

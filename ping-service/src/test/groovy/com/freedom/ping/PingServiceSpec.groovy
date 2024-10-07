@@ -64,9 +64,9 @@ class PingServiceSpec extends Specification {
 
         then:
         1 * webClient.get() >> requestHeadersUriSpec
-        1 * requestHeadersUriSpec.uri("/pong") >> requestHeadersUriSpec
+        1 * requestHeadersUriSpec.uri("/pong?message=Hello") >> requestHeadersUriSpec
         1 * requestHeadersUriSpec.retrieve() >> responseSpec
-        1 * responseSpec.bodyToMono(String.class) >> Mono.just("World")
+        1 * responseSpec.bodyToMono(String.class) >> Mono.just(" World")
     }
 
     def "test global rate limiter restriction"() {

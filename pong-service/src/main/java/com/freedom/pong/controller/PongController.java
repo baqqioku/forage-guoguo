@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+
 @RestController
 public class PongController {
 
@@ -16,18 +18,28 @@ public class PongController {
 
     private PongRateLimiter pongRateLimiter;
 
-    public PongController (PongRateLimiter pongRateLimiter){
+    public PongController(PongRateLimiter pongRateLimiter) {
         this.pongRateLimiter = pongRateLimiter;
     }
 
 
     @GetMapping("/pong")
     public Mono<ResponseEntity<String>> pong() {
-        if (pongRateLimiter.tryAcquire()) {
-            return Mono.just(ResponseEntity.ok("World"));
-        } else {
-            log.error("fall back");
-            return Mono.just(ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Rate limit ， fallback now"));
+        try {
+            if (pongRateLimiter.canSendRequest()) {
+                return Mono.just(ResponseEntity.ok("World"));
+            } else {
+                log.error("Rate limit exceeded");
+                return Mono.just(ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Rate limit exceeded"));
+            }
+        } catch (IOException e) {
+            log.error("Error while checking rate limit: {} ", e.getMessage());
+            return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Internal Server Error"));
+        } catch (Exception e) {
+            log.error("System error:{} ", e.getMessage());
+            return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Internal Server Error"));
         }
     }
 }

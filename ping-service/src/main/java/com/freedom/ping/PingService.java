@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import java.io.IOException;
+
 @Service
 public class PingService {
 
@@ -21,27 +23,33 @@ public class PingService {
         this.globalRateLimiter = globalRateLimiter;
     }
 
-    //@Scheduled(fixedRate = 5000)
-    @Scheduled(fixedRate = 500)
+    //@Scheduled(fixedRate = 1000)
+    @Scheduled(fixedRate = 100)
     public void pingPongService() {
-        if (globalRateLimiter.tryAcquire()) {
-            webClient.get()
-                    .uri("/pong")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .subscribe(
-                            response -> log.info("Request sent & Pong responded: {}", response),
-                            error -> {
-                                if (error instanceof WebClientResponseException &&
-                                        ((WebClientResponseException) error).getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                                    log.info("Request sent & Pong throttled it");
-                                } else {
-                                    log.error("Error occurred: {}", error.getMessage());
+        try {
+            if (globalRateLimiter.canSendRequest()) {
+                webClient.get()
+                        .uri("/pong?message=Hello")
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .subscribe(
+                                response -> log.info("Request sent & Pong responded: {}", response),
+                                error -> {
+                                    if (error instanceof WebClientResponseException &&
+                                            ((WebClientResponseException) error).getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                                        log.info("Request sent & Pong throttled it");
+                                    } else {
+                                        log.error("Error occurred: {}", error.getMessage());
+                                    }
                                 }
-                            }
-                    );
-        } else {
-            log.info("Request not sent as being rate limited");
+                        );
+            } else {
+                log.info("Request not sent as being rate limited");
+            }
+        } catch (IOException e) {
+            log.error("Error while checking rate limit: {} ", e.getMessage());
+        } catch (Exception e) {
+            log.error("System error:{} ", e.getMessage());
         }
     }
 }

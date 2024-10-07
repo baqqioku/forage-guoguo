@@ -33,7 +33,7 @@ class PongControllerNextSpec extends Specification {
                 .build()
     }
 
-    def "should return 'World' for a single request"() {
+    def "test should return 'World' for a single request"() {
         when:
         def response = webTestClient.get()
                 .uri("/pong")
@@ -44,7 +44,7 @@ class PongControllerNextSpec extends Specification {
                 .expectBody(String.class).isEqualTo("World")
     }
 
-    def "should throttle requests exceeding the rate limit"() {
+    def "test should throttle requests exceeding the rate limit"() {
         given:
         def totalRequests = 100
         def successfulRequests = new AtomicInteger(0)
@@ -96,7 +96,7 @@ class PongControllerNextSpec extends Specification {
         println "Test completed. Successful requests: ${successfulRequests.get()}, Throttled requests: ${throttledRequests.get()}"
     }
 
-    def "should maintain rate limit over a longer period"() {
+    def "test should maintain rate limit over a longer period"() {
         given:
         def testDurationSeconds = 5
         def expectedRequests = testDurationSeconds // 因为QPS是1
