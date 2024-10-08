@@ -11,5 +11,6 @@
 
     <artifactId>ping-service</artifactId>
 
+    <packaging>jar</packaging>
 
 </project>

@@ -67,17 +67,13 @@ class PingControllerSpec extends Specification {
     }
 
     def "test global rate limiter restriction"() {
-        globalRateLimiter.tryAcquire() >> {
-            println "Mocking tryAcquire() call"
-            return false
-        }
+        given: "The global rate limiter is set to return false"
+        globalRateLimiter.tryAcquire() >> false
 
-        when:
-        println "Calling pingPongService()"
+        when: "Calling the pingPongService method"
         pingService.pingPongService()
 
-        then:
-        println "Verifying interactions"
+        then: "Verify that tryAcquire is called once and webClient.get() is not called"
         1 * globalRateLimiter.tryAcquire()
         0 * webClient.get()
     }

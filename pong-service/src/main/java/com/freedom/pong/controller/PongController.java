@@ -27,15 +27,13 @@ public class PongController {
     public Mono<ResponseEntity<String>> pong() {
         try {
             if (pongRateLimiter.tryAcquire()) {
+                log.info("ping Successful ");
                 return Mono.just(ResponseEntity.ok("World"));
             } else {
                 log.error("Rate limit exceeded");
                 return Mono.just(ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Rate limit exceeded"));
             }
-        } catch (IOException e) {
-            log.error("Error while checking rate limit: {} ", e.getMessage());
-            return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error"));
-        } catch (Exception e) {
+        }  catch (Exception e) {
             e.printStackTrace();
             log.error("System error:{} ", e.getMessage());
             return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error"));
