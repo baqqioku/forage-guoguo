@@ -7,13 +7,13 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "pong")
 public class PongProperties {
 
-    private Double limitQps;
+    private Integer limitQps;
 
-    public Double getLimitQps() {
+    public Integer getLimitQps() {
         return limitQps;
     }
 
-    public void setLimitQps(Double limitQps) {
+    public void setLimitQps(Integer limitQps) {
         this.limitQps = limitQps;
     }
 }

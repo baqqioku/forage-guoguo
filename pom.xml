@@ -131,6 +131,8 @@
                     <includes>
                         <include>**/*Spec.java</include>
                         <include>**/*Test.java</include>
+                        <include>**/*Spec.groovy</include> <!-- 添加对 Groovy 的支持 -->
+                        <include>**/*Test.groovy</include> <!-- 如果有以 Test 命名的 Groovy 文件 -->
                     </includes>
                 </configuration>
             </plugin>
