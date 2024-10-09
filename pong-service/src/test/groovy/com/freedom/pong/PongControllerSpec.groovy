@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 //使用WebClient
+@Deprecated
 class PongControllerSpec extends Specification {
 
     @Subject

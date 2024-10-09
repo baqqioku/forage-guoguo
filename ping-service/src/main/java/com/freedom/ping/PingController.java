@@ -1,18 +1,21 @@
 package com.freedom.ping;
 
 import com.freedom.limit.GlobalRateLimiter;
+import com.freedom.limit.GlobalRateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 
-@Controller
+@RestController
+//@Service
 public class PingController {
 
     private static final Logger log = LoggerFactory.getLogger(PingController.class);
@@ -24,12 +27,14 @@ public class PingController {
         this.globalRateLimiter = globalRateLimiter;
     }
 
-    //@Scheduled(fixedRate = 1000)
-    @Scheduled(fixedRate = 100)
-    @RequestMapping("/ping")
+    @Scheduled(fixedRate = 1000)
+    //@Scheduled(fixedRate = 100)
     public void pingPongService() {
         try {
-            if (globalRateLimiter.tryAcquire()) {
+            log.debug("Attempting to acquire rate limit");
+            boolean acquired = globalRateLimiter.tryAcquire();
+            log.debug("Rate limit acquired: {}", acquired);
+            if (acquired) {
                 webClient.get()
                         .uri("/pong?message=Hello")
                         .retrieve()
@@ -49,9 +54,16 @@ public class PingController {
                 log.info("Request not sent as being rate limited");
             }
         } catch (IOException e) {
+            e.printStackTrace();
             log.error("Error while checking rate limit: {} ", e.getMessage());
         } catch (Exception e) {
+            e.printStackTrace();
             log.error("System error:{} ", e.getMessage());
         }
+    }
+
+    @RequestMapping("/ping")
+    public Mono<String> ping() {
+        return Mono.just("Ping service is running");
     }
 }
