@@ -76,7 +76,7 @@ class PingControllerSpec extends Specification {
     }
 
     def "test global rate limiter restriction"() {
-        given: "The global rate limiter is set to return false"
+        given:
         /*GlobalRateLimiter spyGlobalRateLimiter = Spy(GlobalRateLimiter, constructorArgs: [pingProperties]) {
             tryAcquire() >> false
         }
@@ -85,16 +85,16 @@ class PingControllerSpec extends Specification {
         globalRateLimiter.tryAcquire() >> false
 //        GlobalRateLimiter spyGlobalRateLimiter = Spy(globalRateLimiter)
 //        spyGlobalRateLimiter.tryAcquire() >> false
-        when: "Calling the pingPongService method"
+        when:
         pingService.pingPongService()
 
-        then: "Verify that tryAcquire is called once and webClient.get() is not called"
+        then:
         //1 * globalRateLimiter.tryAcquire()
         0 * webClient.get()
     }
 
     def "test pong service throttling"() {
-        given: "Set up GlobalRateLimiter and WebClient"
+        given:
         def spyGlobalRateLimiter = Spy(GlobalRateLimiter)
         spyGlobalRateLimiter.tryAcquire() >> true
 
@@ -125,25 +125,25 @@ class PingControllerSpec extends Specification {
         // 使用模拟的 WebClient.Builder 创建 PingController
         def pingController = new PingController(mockWebClientBuilder, spyGlobalRateLimiter)
 
-        when: "Calling the pingPongService method"
+        when:
         pingController.pingPongService()
         Thread.sleep(100) // 等待异步操作完成
 
-        then: "Verify the correct methods are called with expected arguments"
+        then:
         1 * spyGlobalRateLimiter.tryAcquire()
         1 * mockWebClient.get() >> mockRequestHeadersUriSpec
         1 * mockRequestHeadersUriSpec.uri("/pong?message=Hello") >> mockRequestHeadersUriSpec
         1 * mockRequestHeadersUriSpec.retrieve() >> mockResponseSpec
         1 * mockResponseSpec.bodyToMono(String) >> Mono.error(exception)
 
-        and: "No further interactions with webClient"
+        and:
         0 * mockWebClient._
     }
 
 
     def "test unexpected error"() {
 
-        given: "Set up GlobalRateLimiter and WebClient"
+        given:
         def spyGlobalRateLimiter = Spy(GlobalRateLimiter)
         spyGlobalRateLimiter.tryAcquire() >> true
 
