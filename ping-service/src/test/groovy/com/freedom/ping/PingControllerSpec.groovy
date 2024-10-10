@@ -89,7 +89,7 @@ class PingControllerSpec extends Specification {
         pingService.pingPongService()
 
         then:
-        //1 * globalRateLimiter.tryAcquire()
+        1 * globalRateLimiter.tryAcquire()
         0 * webClient.get()
     }
 
