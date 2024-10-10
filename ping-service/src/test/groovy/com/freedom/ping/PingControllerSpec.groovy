@@ -228,6 +228,43 @@ class PingControllerSpec extends Specification {
         logger.info("All assertions passed successfully")
     }
 
+    def "test concurrent requests by time window"() {
+        given:
+
+        def rateLimiter = new GlobalRateLimiter(mockPingProperties)
+        def threadCount = 10
+        def executionCount = 100
+        def successCount = new AtomicInteger(0)
+        def latch = new CountDownLatch(threadCount)
+        def executor = Executors.newFixedThreadPool(threadCount)
+
+        when:
+        threadCount.times {
+            executor.submit {
+                try {
+                    executionCount.times {
+                        if (rateLimiter.tryAcquire()) {
+                            successCount.incrementAndGet()
+                        }
+
+                    }
+                } finally {
+                    latch.countDown()
+                }
+            }
+            // 模拟请求间隔
+            Thread.sleep(1000)
+        }
+        latch.await(30, TimeUnit.SECONDS)
+
+        then:
+        successCount.get() > 0
+        successCount.get() <= 20 // 假设测试运行了10秒，最多允许20个成功请求
+
+        cleanup:
+        executor.shutdownNow()
+    }
+
 
 
 
