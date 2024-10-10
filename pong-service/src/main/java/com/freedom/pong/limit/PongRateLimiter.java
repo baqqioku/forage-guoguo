@@ -22,13 +22,12 @@ public class PongRateLimiter {
     }
 
     public boolean tryAcquire() {
-        long currentTime = System.currentTimeMillis() / 1000; // Current second timestamp
+        long currentTime = System.currentTimeMillis() / 1000;
 
         threadLock.lock();
         try (RandomAccessFile stateFile = new RandomAccessFile(LOCK_FILE, "rw");
              FileChannel channel = stateFile.getChannel()) {
 
-            // Attempt to acquire the file lock
             FileLock lock = channel.lock();
             if (lock == null) {
                 log.info("Could not acquire lock, another process is holding it.");
@@ -36,46 +35,42 @@ public class PongRateLimiter {
             }
 
             try {
-                // Read state: timestamp and counter
                 long lastTimeStamp = 0;
                 int requestCount = 0;
 
                 if (stateFile.length() > 0) {
-                    stateFile.seek(0); // Move file pointer to the start
-                    lastTimeStamp = stateFile.readLong(); // Read last timestamp
-                    requestCount = stateFile.readInt();   // Read last request count
+                    stateFile.seek(0);
+                    lastTimeStamp = stateFile.readLong();
+                    requestCount = stateFile.readInt();
                 }
 
-                // Check if within the same second
                 if (currentTime == lastTimeStamp) {
                     if (requestCount >= MAX_REQUESTS_PER_SECOND) {
                         log.info("Rate limit reached for second: {}", currentTime);
-                        return false; // Rate limit reached
+                        return false;
                     } else {
-                        requestCount++; // Increment request count
+                        requestCount++;
                     }
                 } else {
-                    // New second, reset counter
                     lastTimeStamp = currentTime;
                     requestCount = 1;
                 }
 
-                // Write new state back to file
-                stateFile.seek(0); // Move pointer to the start
-                stateFile.writeLong(lastTimeStamp); // Write new timestamp
-                stateFile.writeInt(requestCount);   // Write new count
+                stateFile.seek(0);
+                stateFile.writeLong(lastTimeStamp);
+                stateFile.writeInt(requestCount);
 
                 log.info("Request allowed for second: {}, count: {}", currentTime, requestCount);
-                return true; // Allow request
+                return true;
 
             } finally {
-                lock.release(); // Ensure the file lock is released
+                lock.release();
             }
         } catch (IOException e) {
             log.error("Error accessing rate limit file", e);
-            return false; // Deny request on error
+            return false;
         } finally {
-            threadLock.unlock(); // Release the intra-process lock
+            threadLock.unlock();
         }
     }
 }
