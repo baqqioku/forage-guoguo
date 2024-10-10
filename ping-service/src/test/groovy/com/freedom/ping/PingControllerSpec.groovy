@@ -57,8 +57,8 @@ class PingControllerSpec extends Specification {
     def "test successful ping"() {
         given:
         globalRateLimiter.tryAcquire() >> true
-       /* GlobalRateLimiter spyGlobalRateLimiter = Spy(globalRateLimiter)
-        spyGlobalRateLimiter.tryAcquire() >> true*/
+        /* GlobalRateLimiter spyGlobalRateLimiter = Spy(globalRateLimiter)
+         spyGlobalRateLimiter.tryAcquire() >> true*/
         responseSpec.bodyToMono(String.class) >> Mono.just("World")
 
         when:
@@ -208,7 +208,7 @@ class PingControllerSpec extends Specification {
                         rateLimitedRequests.incrementAndGet()
                         logger.info("Request {} rate limited", count)
                     }
-                }finally {
+                } finally {
                     latch.countDown()
                 }
             }
@@ -228,6 +228,7 @@ class PingControllerSpec extends Specification {
         logger.info("All assertions passed successfully")
     }
 
+    //每隔一秒发起100次请求
     def "test concurrent requests by time window"() {
         given:
 
@@ -264,10 +265,6 @@ class PingControllerSpec extends Specification {
         cleanup:
         executor.shutdownNow()
     }
-
-
-
-
 
 
 }
