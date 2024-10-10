@@ -53,9 +53,6 @@ public class PingController {
             } else {
                 log.info("Request not sent as being rate limited");
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            log.error("Error while checking rate limit: {} ", e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             log.error("System error:{} ", e.getMessage());

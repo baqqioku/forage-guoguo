@@ -26,7 +26,10 @@ public class PongController {
     @GetMapping("/pong")
     public Mono<ResponseEntity<String>> pong() {
         try {
-            if (pongRateLimiter.tryAcquire()) {
+            log.debug("Attempting to acquire rate limit");
+            boolean acquired = pongRateLimiter.tryAcquire();
+            log.debug("Rate limit acquired: {}", acquired);
+            if (acquired) {
                 log.info("ping Successful ");
                 return Mono.just(ResponseEntity.ok("World"));
             } else {

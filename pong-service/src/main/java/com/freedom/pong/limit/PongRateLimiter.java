@@ -25,52 +25,74 @@ public class PongRateLimiter {
         long currentTime = System.currentTimeMillis() / 1000;
 
         threadLock.lock();
-        try (RandomAccessFile stateFile = new RandomAccessFile(LOCK_FILE, "rw");
-             FileChannel channel = stateFile.getChannel()) {
-
-            FileLock lock = channel.lock();
-            if (lock == null) {
-                log.info("Could not acquire lock, another process is holding it.");
-                return false;
-            }
-
-            try {
-                long lastTimeStamp = 0;
-                int requestCount = 0;
-
-                if (stateFile.length() > 0) {
-                    stateFile.seek(0);
-                    lastTimeStamp = stateFile.readLong();
-                    requestCount = stateFile.readInt();
-                }
-
-                if (currentTime == lastTimeStamp) {
-                    if (requestCount >= MAX_REQUESTS_PER_SECOND) {
-                        log.info("Rate limit reached for second: {}", currentTime);
-                        return false;
-                    } else {
-                        requestCount++;
-                    }
-                } else {
-                    lastTimeStamp = currentTime;
-                    requestCount = 1;
-                }
-
-                stateFile.seek(0);
-                stateFile.writeLong(lastTimeStamp);
-                stateFile.writeInt(requestCount);
-
-                log.info("Request allowed for second: {}, count: {}", currentTime, requestCount);
-                return true;
-
-            } finally {
-                lock.release();
-            }
-        } catch (IOException e) {
-            log.error("Error accessing rate limit file", e);
-            return false;
+        try {
+            return doTryAcquire(currentTime);
         } finally {
             threadLock.unlock();
         }
+    }
+
+    private boolean doTryAcquire(long currentTime) {
+        int retries = 3;
+        while (retries > 0) {
+            try (RandomAccessFile stateFile = new RandomAccessFile(LOCK_FILE, "rw");
+                 FileChannel channel = stateFile.getChannel()) {
+
+                FileLock lock = null;
+                try {
+                    lock = channel.tryLock();
+                    if (lock == null) {
+                        log.info("Could not acquire lock, another process is holding it.");
+                        return false;
+                    }
+
+                    long lastTimeStamp = 0;
+                    int requestCount = 0;
+
+                    if (stateFile.length() > 0) {
+                        stateFile.seek(0);
+                        lastTimeStamp = stateFile.readLong();
+                        requestCount = stateFile.readInt();
+                    }
+
+                    if (currentTime == lastTimeStamp) {
+                        if (requestCount >= MAX_REQUESTS_PER_SECOND) {
+                            log.info("Rate limit reached for second: {}", currentTime);
+                            return false;
+                        } else {
+                            requestCount++;
+                        }
+                    } else {
+                        lastTimeStamp = currentTime;
+                        requestCount = 1;
+                    }
+
+                    stateFile.seek(0);
+                    stateFile.writeLong(lastTimeStamp);
+                    stateFile.writeInt(requestCount);
+
+                    log.info("Request allowed for second: {}, count: {}", currentTime, requestCount);
+                    return true;
+
+                } finally {
+                    if (lock != null) {
+                        lock.release();
+                    }
+                }
+            } catch (IOException e) {
+                log.error("Error accessing rate limit file", e);
+                retries--;
+                if (retries == 0) {
+                    return false;
+                }
+                try {
+                    Thread.sleep(10); // 短暂等待后重试
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 }

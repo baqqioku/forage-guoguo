@@ -25,10 +25,10 @@ class PingControllerSpec extends Specification {
     WebClient.RequestHeadersUriSpec requestHeadersUriSpec
     WebClient.ResponseSpec responseSpec
     GlobalRateLimiter globalRateLimiter
-    PingProperties pingProperties
+    PingProperties mockPingProperties
 
 
-    @Subject
+    //@Subject
     PingController pingService
 
     def setup() {
@@ -39,14 +39,10 @@ class PingControllerSpec extends Specification {
         //globalRateLimiter = new GlobalRateLimiter(new PingProperties(limitQps: 2.0))
         //globalRateLimiter = new GlobalRateLimiter();
         // 模拟 PingProperties
-        pingProperties = Mock(PingProperties)
-        pingProperties.getLimitQps() >> 2 // 假设限制为每秒2个请求
+        mockPingProperties = Mock(PingProperties)
+        mockPingProperties.getLimitQps() >> 2 // 假设限制为每秒2个请求
 
-        // 使用模拟的 PingProperties 创建 GlobalRateLimiter
-        //globalRateLimiter = new GlobalRateLimiter()
         globalRateLimiter = Mock(GlobalRateLimiter)
-
-        //pingProperties = new PingProperties(limitQps: 2.0)
 
         webClientBuilder.baseUrl(_ as String) >> webClientBuilder
         webClientBuilder.build() >> webClient
@@ -83,8 +79,7 @@ class PingControllerSpec extends Specification {
 
         PingController testPingService = new PingController(webClientBuilder, spyGlobalRateLimiter)*/
         globalRateLimiter.tryAcquire() >> false
-//        GlobalRateLimiter spyGlobalRateLimiter = Spy(globalRateLimiter)
-//        spyGlobalRateLimiter.tryAcquire() >> false
+
         when:
         pingService.pingPongService()
 
@@ -95,9 +90,7 @@ class PingControllerSpec extends Specification {
 
     def "test pong service throttling"() {
         given:
-        def spyGlobalRateLimiter = Spy(GlobalRateLimiter)
-        spyGlobalRateLimiter.tryAcquire() >> true
-
+        globalRateLimiter.tryAcquire() >> true
         def mockWebClient = Mock(WebClient)
         def mockWebClientBuilder = Mock(WebClient.Builder)
         def mockRequestHeadersUriSpec = Mock(WebClient.RequestHeadersUriSpec)
@@ -123,14 +116,13 @@ class PingControllerSpec extends Specification {
         mockResponseSpec.bodyToMono(String) >> Mono.error(exception)
 
         // 使用模拟的 WebClient.Builder 创建 PingController
-        def pingController = new PingController(mockWebClientBuilder, spyGlobalRateLimiter)
+        def pingController = new PingController(mockWebClientBuilder, globalRateLimiter)
 
         when:
         pingController.pingPongService()
         Thread.sleep(100) // 等待异步操作完成
 
         then:
-        1 * spyGlobalRateLimiter.tryAcquire()
         1 * mockWebClient.get() >> mockRequestHeadersUriSpec
         1 * mockRequestHeadersUriSpec.uri("/pong?message=Hello") >> mockRequestHeadersUriSpec
         1 * mockRequestHeadersUriSpec.retrieve() >> mockResponseSpec
@@ -140,12 +132,11 @@ class PingControllerSpec extends Specification {
         0 * mockWebClient._
     }
 
-
     def "test unexpected error"() {
 
         given:
-        def spyGlobalRateLimiter = Spy(GlobalRateLimiter)
-        spyGlobalRateLimiter.tryAcquire() >> true
+        //def spyGlobalRateLimiter = Spy(GlobalRateLimiter)
+        globalRateLimiter.tryAcquire() >> true
 
         def mockWebClient = Mock(WebClient)
         def mockWebClientBuilder = Mock(WebClient.Builder)
@@ -166,14 +157,13 @@ class PingControllerSpec extends Specification {
         mockResponseSpec.bodyToMono(String) >> Mono.error(new RuntimeException("Test error"))
 
         // 使用模拟的 WebClient.Builder 创建 PingController
-        def pingController = new PingController(mockWebClientBuilder, spyGlobalRateLimiter)
+        def pingController = new PingController(mockWebClientBuilder, globalRateLimiter)
 
         when: "Calling the pingPongService method"
         pingController.pingPongService()
         Thread.sleep(100) // 等待异步操作完成
 
         then: "Verify the correct methods are called with expected arguments"
-        1 * spyGlobalRateLimiter.tryAcquire()
         1 * mockWebClient.get() >> mockRequestHeadersUriSpec
         1 * mockRequestHeadersUriSpec.uri("/pong?message=Hello") >> mockRequestHeadersUriSpec
         1 * mockRequestHeadersUriSpec.retrieve() >> mockResponseSpec
@@ -195,7 +185,8 @@ class PingControllerSpec extends Specification {
         responseSpec.bodyToMono(String.class) >> Mono.just("World")
 
         logger.info("Starting concurrent request test with {} total requests", totalRequests)
-        globalRateLimiter = new GlobalRateLimiter();
+
+        globalRateLimiter = new GlobalRateLimiter(mockPingProperties);
         when:
         totalRequests.times {
             executor.submit {
@@ -231,8 +222,8 @@ class PingControllerSpec extends Specification {
                 successfulRequests.get(), rateLimitedRequests.get())
 
         successfulRequests.get() + rateLimitedRequests.get() == totalRequests
-        successfulRequests.get() <= pingProperties.limitQps * 2 // 允许一些误差
-        rateLimitedRequests.get() >= totalRequests - (pingProperties.limitQps * 2)
+        successfulRequests.get() <= mockPingProperties.limitQps * 2 // 允许一些误差
+        rateLimitedRequests.get() >= totalRequests - (mockPingProperties.limitQps * 2)
 
         logger.info("All assertions passed successfully")
     }

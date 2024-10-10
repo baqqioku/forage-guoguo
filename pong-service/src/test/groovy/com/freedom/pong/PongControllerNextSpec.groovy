@@ -3,6 +3,8 @@ package com.freedom.pong;
 import com.freedom.pong.controller.PongController
 import com.freedom.pong.limit.PongProperties
 import com.freedom.pong.limit.PongRateLimiter
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import spock.lang.Specification;
@@ -14,8 +16,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Deprecated
 //使用webTestClient
 class PongControllerNextSpec extends Specification {
+
+    private static final Logger logger = LoggerFactory.getLogger(PongControllerNextSpec.class)
+
 
     @Subject
     PongController pongController
@@ -61,7 +67,6 @@ class PongControllerNextSpec extends Specification {
                             .uri("/pong")
                             .exchange()
                             .returnResult(String.class)
-
                     if (result.status == HttpStatus.OK) {
                         successfulRequests.incrementAndGet()
                         requestTimestamps.offer(System.currentTimeMillis())
@@ -113,7 +118,7 @@ class PongControllerNextSpec extends Specification {
                     .uri("/pong")
                     .exchange()
                     .returnResult(String.class)
-
+            logger.info("result.status+",result.status)
             if (result.status == HttpStatus.OK) {
                 successfulRequests.incrementAndGet()
                 println "Request succeeded at: ${new Date()}"
