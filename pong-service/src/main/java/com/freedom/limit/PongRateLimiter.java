@@ -1,4 +1,4 @@
-package com.freedom.pong.limit;
+package com.freedom.limit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

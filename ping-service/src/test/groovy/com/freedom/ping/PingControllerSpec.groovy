@@ -1,6 +1,6 @@
 package com.freedom.ping
 
-import com.freedom.limit.GlobalRateLimiter
+import com.freedom.limit.PingRateLimiter
 import com.freedom.limit.PingProperties
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -9,7 +9,6 @@ import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 import spock.lang.Specification
-import spock.lang.Subject
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -24,7 +23,7 @@ class PingControllerSpec extends Specification {
     WebClient webClient
     WebClient.RequestHeadersUriSpec requestHeadersUriSpec
     WebClient.ResponseSpec responseSpec
-    GlobalRateLimiter globalRateLimiter
+    PingRateLimiter globalRateLimiter
     PingProperties mockPingProperties
 
 
@@ -42,7 +41,7 @@ class PingControllerSpec extends Specification {
         mockPingProperties = Mock(PingProperties)
         mockPingProperties.getLimitQps() >> 2 // 假设限制为每秒2个请求
 
-        globalRateLimiter = Mock(GlobalRateLimiter)
+        globalRateLimiter = Mock(PingRateLimiter)
 
         webClientBuilder.baseUrl(_ as String) >> webClientBuilder
         webClientBuilder.build() >> webClient
@@ -186,7 +185,7 @@ class PingControllerSpec extends Specification {
 
         logger.info("Starting concurrent request test with {} total requests", totalRequests)
 
-        globalRateLimiter = new GlobalRateLimiter(mockPingProperties);
+        globalRateLimiter = new PingRateLimiter(mockPingProperties);
         when:
         totalRequests.times {
             executor.submit {
@@ -232,7 +231,7 @@ class PingControllerSpec extends Specification {
     def "test concurrent requests by time window"() {
         given:
 
-        def rateLimiter = new GlobalRateLimiter(mockPingProperties)
+        def rateLimiter = new PingRateLimiter(mockPingProperties)
         def threadCount = 10
         def executionCount = 100
         def successCount = new AtomicInteger(0)

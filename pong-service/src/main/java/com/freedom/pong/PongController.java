@@ -1,6 +1,6 @@
-package com.freedom.pong.controller;
+package com.freedom.pong;
 
-import com.freedom.pong.limit.PongRateLimiter;
+import com.freedom.limit.PongRateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -8,8 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
-
-import java.io.IOException;
 
 @RestController
 public class PongController {

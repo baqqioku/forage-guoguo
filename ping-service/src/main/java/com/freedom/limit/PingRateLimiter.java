@@ -11,15 +11,15 @@ import java.nio.channels.FileLock;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Component
-public class GlobalRateLimiter {
-    private static final Logger log = LoggerFactory.getLogger(GlobalRateLimiter.class);
+public class PingRateLimiter {
+    private static final Logger log = LoggerFactory.getLogger(PingRateLimiter.class);
     private static final String LOCK_FILE = "/data/ping_rate_limit.lock";
 
     private static Integer MAX_REQUESTS_PER_SECOND = 2;
 
     private final ReentrantLock threadLock = new ReentrantLock(); // 线程锁
 
-    public GlobalRateLimiter(PingProperties pingProperties) {
+    public PingRateLimiter(PingProperties pingProperties) {
         this.MAX_REQUESTS_PER_SECOND = pingProperties.getLimitQps();
     }
 
@@ -28,7 +28,9 @@ public class GlobalRateLimiter {
 
         threadLock.lock();
         try {
-            return doTryAcquire(currentTime);
+            boolean result = doTryAcquire(currentTime);
+            log.info("Rate limiter acquire result: {}", result);
+            return result;
         } finally {
             threadLock.unlock();
         }
