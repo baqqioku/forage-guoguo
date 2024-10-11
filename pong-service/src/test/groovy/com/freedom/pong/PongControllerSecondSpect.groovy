@@ -1,21 +1,18 @@
-package com.freedom.pong;
+package com.freedom.pong
 
 import com.freedom.pong.controller.PongController
-import com.freedom.pong.limit.PongProperties;
+import com.freedom.pong.limit.PongProperties
 import com.freedom.pong.limit.PongRateLimiter
-import org.junit.platform.commons.logging.LoggerFactory
-import org.slf4j.Logger
 import org.springframework.http.HttpStatus
-import reactor.test.StepVerifier;
+import reactor.test.StepVerifier
 import spock.lang.Specification
-import spock.lang.Subject
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicInteger
 
-public class PongControllerSecondSpect extends Specification {
+class PongControllerSecondSpect extends Specification {
 
     PongProperties mockPongProperties;
 
