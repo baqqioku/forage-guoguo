@@ -1,47 +1,129 @@
 package com.freedom.pong
 
+import com.freedom.limit.FileAccessWrapper
 import com.freedom.limit.PongProperties
 import com.freedom.limit.PongRateLimiter
 import spock.lang.Specification
 
+import java.nio.channels.FileLock
+import java.util.concurrent.atomic.AtomicInteger
+
 class PongRateLimiterSpec extends Specification {
-    PongRateLimiter limiter
+
+    PongRateLimiter rateLimiter
     PongProperties properties
+    FileAccessWrapper fileAccessWrapper
 
     def setup() {
         properties = Mock(PongProperties)
-        properties.getLimitQps() >> 10
-        limiter = new PongRateLimiter(properties)
+        properties.getLimitQps() >> 2
+        fileAccessWrapper = Mock(FileAccessWrapper)
+        rateLimiter = new PongRateLimiter(properties) {
+            @Override
+            protected FileAccessWrapper createFileAccess() {
+                return fileAccessWrapper
+            }
+        }
     }
 
-    def "should allow requests within rate limit"() {
+    def "test should allow requests within rate limit"() {
+        given:
+        fileAccessWrapper.length() >> 0
+        fileAccessWrapper.tryLock(_, _, _) >> Mock(FileLock)
+
         when:
-        def results = (1..10).collect { limiter.tryAcquire() }
+        def result1 = rateLimiter.tryAcquire()
+        def result2 = rateLimiter.tryAcquire()
 
         then:
-        results.every { it }
+        result1
+        result2
     }
 
-    def "should deny requests exceeding rate limit"() {
+    def "test should deny requests exceeding rate limit"() {
         given:
-        10.times { limiter.tryAcquire() }
+        fileAccessWrapper.length() >> 12 // 8 bytes for long, 4 bytes for int
+        fileAccessWrapper.readLong() >> System.currentTimeMillis() / 1000
+        fileAccessWrapper.readInt() >> 2
+        fileAccessWrapper.tryLock(_, _, _) >> Mock(FileLock)
 
         when:
-        def result = limiter.tryAcquire()
+        def result = rateLimiter.tryAcquire()
 
         then:
         !result
     }
 
-    def "should reset rate limit after one second"() {
+    def "test should reset rate limit after one second"() {
         given:
-        10.times { limiter.tryAcquire() }
+        def currentTime = System.currentTimeMillis() / 1000
+        fileAccessWrapper.length() >> 12
+        fileAccessWrapper.readLong() >> (currentTime - 1)
+        fileAccessWrapper.readInt() >> 2
+        fileAccessWrapper.tryLock(_, _, _) >> Mock(FileLock)
 
         when:
-        sleep(1000)
-        def result = limiter.tryAcquire()
+        def result = rateLimiter.tryAcquire()
 
         then:
         result
+    }
+
+    def "test should handle file lock contention"() {
+        given:
+        fileAccessWrapper.tryLock(_, _, _) >> null
+
+        when:
+        def result = rateLimiter.tryAcquire()
+
+        then:
+        !result
+    }
+
+    def "test should handle IOException during file operations"() {
+        given:
+        fileAccessWrapper.tryLock(_, _, _) >> { throw new IOException("Test IO exception") }
+
+        when:
+        def result = rateLimiter.tryAcquire()
+
+        then:
+        !result
+    }
+
+    def "test should use correct MAX_REQUESTS_PER_SECOND from properties"() {
+        given:
+        def customProperties = Mock(PongProperties)
+        customProperties.getLimitQps() >> 5
+        def currentTime = System.currentTimeMillis() / 1000
+        def requestCount = new AtomicInteger(0)
+
+        fileAccessWrapper = Mock(FileAccessWrapper) {
+            length() >> { requestCount.get() > 0 ? 12 : 0 }
+            readLong() >> currentTime
+            readInt() >> { requestCount.get() }
+            tryLock(_, _, _) >> Mock(FileLock)
+        }
+
+        def customRateLimiter = new PongRateLimiter(customProperties) {
+            @Override
+            protected FileAccessWrapper createFileAccess() {
+                return fileAccessWrapper
+            }
+        }
+
+        when:
+        def results = (1..6).collect {
+            def result = customRateLimiter.tryAcquire()
+            if (result) {
+                requestCount.incrementAndGet()
+            }
+            result
+        }
+
+        then:
+        results[0..4].every { it }
+        !results[5]
+        requestCount.get() == 5
     }
 }

@@ -43,7 +43,7 @@ public class PingController {
                                             ((WebClientResponseException) error).getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
                                         log.info("Request sent & Pong throttled it");
                                     } else {
-                                        log.error("Error occurred: {}", error.getMessage());
+                                        log.error("Error occurred: {}", error);
                                     }
                                 }
                         );
@@ -51,8 +51,7 @@ public class PingController {
                 log.info("Request not sent as being rate limited");
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            log.error("System error:{} ", e.getMessage());
+            log.error("System error:{} ", e);
         }
     }
 

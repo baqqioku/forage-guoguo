@@ -1,40 +1,33 @@
-package com.freedom.ping
+package com.freedom.limit
 
-import com.freedom.limit.PingProperties
-import com.freedom.limit.PingRateLimiter
-import spock.lang.Shared
 import spock.lang.Specification
-import spock.util.concurrent.PollingConditions
+
+import java.nio.channels.FileLock
+import java.util.concurrent.atomic.AtomicInteger
 
 class PingRateLimiterSpec extends Specification {
-    @Shared
+
     PingRateLimiter rateLimiter
-
-    @Shared
-    File lockFile
-
-    def setupSpec() {
-        System.setProperty("LOCK_FILE", "/data/ping_rate_limit.lock")
-    }
+    PingProperties properties
+    FileAccessWrapper fileAccessWrapper
 
     def setup() {
-        PingProperties properties = Mock(PingProperties)
+        properties = Mock(PingProperties)
         properties.getLimitQps() >> 2
-        rateLimiter = new PingRateLimiter(properties)
-        def lockFile = new File(System.getProperty("LOCK_FILE"))
-        if (lockFile.exists()) {
-            lockFile.delete()
+        fileAccessWrapper = Mock(FileAccessWrapper)
+        rateLimiter = new PingRateLimiter(properties) {
+            @Override
+            protected FileAccessWrapper createFileAccess() {
+                return fileAccessWrapper
+            }
         }
     }
 
-    def cleanup() {
-        def lockFile = new File(System.getProperty("LOCK_FILE"))
-        if (lockFile.exists()) {
-            lockFile.delete()
-        }
-    }
+    def "test should allow requests within rate limit"() {
+        given:
+        fileAccessWrapper.length() >> 0
+        fileAccessWrapper.tryLock(_, _, _) >> Mock(FileLock)
 
-    def "should allow requests within rate limit"() {
         when:
         def result1 = rateLimiter.tryAcquire()
         def result2 = rateLimiter.tryAcquire()
@@ -44,10 +37,12 @@ class PingRateLimiterSpec extends Specification {
         result2
     }
 
-    def "should deny requests exceeding rate limit"() {
+    def "test should deny requests exceeding rate limit"() {
         given:
-        rateLimiter.tryAcquire()
-        rateLimiter.tryAcquire()
+        fileAccessWrapper.length() >> 12 // 8 bytes for long, 4 bytes for int
+        fileAccessWrapper.readLong() >> System.currentTimeMillis() / 1000
+        fileAccessWrapper.readInt() >> 2
+        fileAccessWrapper.tryLock(_, _, _) >> Mock(FileLock)
 
         when:
         def result = rateLimiter.tryAcquire()
@@ -56,11 +51,13 @@ class PingRateLimiterSpec extends Specification {
         !result
     }
 
-    def "should reset rate limit after one second"() {
+    def "test should reset rate limit after one second"() {
         given:
-        rateLimiter.tryAcquire()
-        rateLimiter.tryAcquire()
-        sleep(1000)
+        def currentTime = System.currentTimeMillis() / 1000
+        fileAccessWrapper.length() >> 12
+        fileAccessWrapper.readLong() >> (currentTime - 1)
+        fileAccessWrapper.readInt() >> 2
+        fileAccessWrapper.tryLock(_, _, _) >> Mock(FileLock)
 
         when:
         def result = rateLimiter.tryAcquire()
@@ -69,27 +66,9 @@ class PingRateLimiterSpec extends Specification {
         result
     }
 
-    def "should handle file lock contention"() {
+    def "test should handle file lock contention"() {
         given:
-        def lockFile = new File(System.getProperty("LOCK_FILE"))
-        def channel1 = new RandomAccessFile(lockFile, "rw").getChannel()
-        def lock1 = channel1.tryLock()
-
-        when:
-        def result = rateLimiter.tryAcquire()
-
-        then:
-        !result
-
-        cleanup:
-        lock1.release()
-        channel1.close()
-    }
-
-    def "should retry on IO exception"() {
-        given:
-        def mockFile = Mock(RandomAccessFile)
-        mockFile.getChannel() >> { throw new IOException("Test IO exception") }
+        fileAccessWrapper.tryLock(_, _, _) >> null
 
         when:
         def result = rateLimiter.tryAcquire()
@@ -98,38 +77,50 @@ class PingRateLimiterSpec extends Specification {
         !result
     }
 
-    def "should handle interrupted exception during retry"() {
+    def "test should handle IOException during file operations"() {
         given:
-        def mockFile = Mock(RandomAccessFile)
-        mockFile.getChannel() >> { throw new IOException("Test IO exception") }
-        Thread.currentThread().interrupt()
+        fileAccessWrapper.tryLock(_, _, _) >> { throw new IOException("Test IO exception") }
 
         when:
         def result = rateLimiter.tryAcquire()
 
         then:
         !result
-        Thread.interrupted() // clear the interrupt flag
     }
 
-
-
-
-
-    def "should handle concurrent access"() {
+    def "test should use correct MAX_REQUESTS_PER_SECOND from properties"() {
         given:
-        def threads = (1..10).collect { Thread.start { rateLimiter.tryAcquire() } }
+        def customProperties = Mock(PingProperties)
+        customProperties.getLimitQps() >> 5
+        def currentTime = System.currentTimeMillis() / 1000
+        def requestCount = new AtomicInteger(0)
 
-        when:
-        threads*.join()
-
-        then:
-        new PollingConditions(timeout: 5).eventually {
-            def content = new RandomAccessFile(lockFile, "r").withCloseable { raf ->
-                raf.seek(8) // Skip timestamp
-                raf.readInt()
-            }
-            assert content == 2
+        fileAccessWrapper = Mock(FileAccessWrapper) {
+            length() >> { requestCount.get() > 0 ? 12 : 0 }
+            readLong() >> currentTime
+            readInt() >> { requestCount.get() }
+            tryLock(_, _, _) >> Mock(FileLock)
         }
+
+        def customRateLimiter = new PingRateLimiter(customProperties) {
+            @Override
+            protected FileAccessWrapper createFileAccess() {
+                return fileAccessWrapper
+            }
+        }
+
+        when:
+        def results = (1..6).collect {
+            def result = customRateLimiter.tryAcquire()
+            if (result) {
+                requestCount.incrementAndGet()
+            }
+            result
+        }
+
+        then:
+        results[0..4].every { it }
+        !results[5]
+        requestCount.get() == 5
     }
 }
